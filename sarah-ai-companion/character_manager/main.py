@@ -11,6 +11,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
@@ -117,7 +118,7 @@ async def health_check():
     db_healthy = False
     try:
         async with get_db() as db:
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             db_healthy = True
     except:
         pass
