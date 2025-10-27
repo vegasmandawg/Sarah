@@ -20,8 +20,18 @@ fake_pymilvus.connections = _types.SimpleNamespace(connect=lambda **k: None, has
 class DummyCollection:
     pass
 fake_pymilvus.Collection = DummyCollection
-fake_pymilvus.CollectionSchema = object
-fake_pymilvus.FieldSchema = object
+class _FakeFieldSchema:
+    def __init__(self, *args, **kwargs):
+        # accept any args used by the real FieldSchema
+        pass
+
+
+class _FakeCollectionSchema:
+    def __init__(self, *args, **kwargs):
+        pass
+
+fake_pymilvus.CollectionSchema = _FakeCollectionSchema
+fake_pymilvus.FieldSchema = _FakeFieldSchema
 fake_pymilvus.DataType = _types.SimpleNamespace(VARCHAR=0, FLOAT_VECTOR=1, INT64=2)
 fake_pymilvus.utility = _types.SimpleNamespace(has_collection=lambda name: False, load_state=lambda name: True)
 _sys.modules["pymilvus"] = fake_pymilvus
