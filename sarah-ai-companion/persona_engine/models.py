@@ -7,6 +7,22 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 
 
+class ChatPreferences(BaseModel):
+    """Optional chat preference payload for adult tuning"""
+
+    mood: Optional[str] = Field(default=None, description="Overall mood or tone to adopt")
+    explicit_level: Optional[str] = Field(default=None, description="How explicit the response should be")
+    intensity: Optional[int] = Field(default=None, ge=0, le=100, description="Heat/intensity slider (0-100)")
+    pacing: Optional[str] = Field(default=None, description="Conversation pacing preference")
+    narration_style: Optional[str] = Field(default=None, description="Narration perspective preference")
+    roleplay_mode: Optional[bool] = Field(default=None, description="Whether to remain fully in character")
+    allow_narration: Optional[bool] = Field(default=None, description="Whether to describe sensations narratively")
+    safe_word: Optional[str] = Field(default=None, description="Active safe word to respect")
+    green_lights: List[str] = Field(default_factory=list, description="Allowed turn-ons or focus areas")
+    hard_limits: List[str] = Field(default_factory=list, description="Topics or actions that must be avoided")
+    aftercare_notes: Optional[str] = Field(default=None, description="How to deliver aftercare once scene winds down")
+
+
 class ChatMessage(BaseModel):
     """Individual chat message"""
     role: str = Field(..., description="Message role: 'user' or 'assistant'")
@@ -22,6 +38,7 @@ class ChatRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
     conversation_id: Optional[str] = Field(default=None, description="Conversation ID for context")
     stream: bool = Field(default=True, description="Whether to stream the response")
+    preferences: Optional[ChatPreferences] = Field(default=None, description="User's intimacy configuration")
 
 
 class ChatResponse(BaseModel):

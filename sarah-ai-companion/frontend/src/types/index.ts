@@ -21,17 +21,36 @@ export interface CharacterCreateRequest {
 }
 
 // Chat types
+export interface ChatPreferencesPayload {
+  mood?: string
+  explicit_level?: string
+  intensity?: number
+  pacing?: string
+  narration_style?: string
+  roleplay_mode?: boolean
+  allow_narration?: boolean
+  safe_word?: string
+  green_lights?: string[]
+  hard_limits?: string[]
+  aftercare_notes?: string
+}
+
+export interface MessageMetadata {
+  sentiment?: SentimentData
+  status?: 'sending' | 'sent' | 'error'
+  image_url?: string
+  audio_url?: string
+  quickAction?: boolean
+  quickActionLabel?: string
+  preferences?: ChatPreferencesPayload
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: string
-  metadata?: {
-    sentiment?: SentimentData
-    status?: 'sending' | 'sent' | 'error'
-    image_url?: string
-    audio_url?: string
-  }
+  metadata?: MessageMetadata
 }
 
 export interface SentimentData {

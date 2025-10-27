@@ -11,13 +11,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 import httpx
 import redis.asyncio as redis
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from prompt_manager import PromptManager
-from models import ChatMessage, ChatRequest, SentimentRequest, SentimentResponse
+from models import ChatMessage, ChatRequest, SentimentRequest, SentimentResponse, ChatPreferences
 from config import settings
 
 # Configure logging
@@ -131,12 +131,46 @@ async def analyze_sentiment(text: str) -> Dict[str, float]:
     }
 
 
-def adjust_generation_params(sentiment_score: float) -> Dict[str, float]:
+def clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(value, maximum))
+
+
+def adjust_generation_params(
+    sentiment_score: float,
+    preferences: Optional[Dict[str, Any]] = None
+) -> Dict[str, float]:
     """Adjust LLM generation parameters based on sentiment"""
     # Base parameters
     base_temp = 0.7
     base_top_p = 0.9
-    
+
+    if preferences:
+        intensity = preferences.get("intensity")
+        if isinstance(intensity, (int, float)):
+            # Normalise intensity (0-100) to adjustment (-0.2 to +0.2)
+            delta = ((intensity - 50) / 50) * 0.2
+            base_temp += delta
+            base_top_p += delta * 0.5
+
+        explicit_level = preferences.get("explicit_level")
+        if explicit_level == "suggestive":
+            base_temp -= 0.1
+            base_top_p -= 0.05
+        elif explicit_level == "explicit":
+            base_temp += 0.1
+            base_top_p += 0.05
+
+        pacing = preferences.get("pacing")
+        if pacing == "slow_burn":
+            base_temp -= 0.05
+            base_top_p -= 0.05
+        elif pacing == "fast":
+            base_temp += 0.05
+
+        if preferences.get("roleplay_mode"):
+            # Keep things imaginative and character focused
+            base_top_p += 0.05
+
     # Adjust based on sentiment
     if sentiment_score > 0.5:  # Positive sentiment
         # More creative and playful
@@ -151,8 +185,8 @@ def adjust_generation_params(sentiment_score: float) -> Dict[str, float]:
         top_p = base_top_p
     
     return {
-        "temperature": temperature,
-        "top_p": top_p
+        "temperature": clamp(temperature, 0.2, 1.2),
+        "top_p": clamp(top_p, 0.5, 1.0)
     }
 
 
@@ -258,7 +292,8 @@ async def publish_conversation_turn(
     user_id: str,
     character_id: str,
     user_message: str,
-    ai_response: str
+    ai_response: str,
+    preferences: Optional[Dict[str, Any]] = None
 ):
     """Publish conversation turn to Redis for memory processing"""
     if not redis_client:
@@ -271,8 +306,11 @@ async def publish_conversation_turn(
             "character_id": character_id,
             "user_message": user_message,
             "ai_response": ai_response,
-            "timestamp": asyncio.get_event_loop().time()
+            "timestamp": asyncio.get_event_loop().time(),
         }
+
+        if preferences:
+            conversation_data["preferences"] = preferences
         
         await redis_client.publish(
             "conversation_turns",
@@ -335,7 +373,16 @@ async def websocket_chat(websocket: WebSocket):
             user_message = data.get("message", "")
             character_id = data.get("character_id", "default")
             user_id = data.get("user_id", "anonymous")
-            
+
+            raw_preferences = data.get("preferences") or {}
+            validated_preferences: Dict[str, Any] = {}
+            if raw_preferences:
+                try:
+                    validated_preferences = ChatPreferences(**raw_preferences).model_dump(exclude_none=True)
+                except ValidationError as exc:
+                    logger.warning(f"Invalid preference payload received: {exc}")
+                    validated_preferences = {}
+
             if not user_message:
                 await websocket.send_json({
                     "type": "error",
@@ -353,8 +400,8 @@ async def websocket_chat(websocket: WebSocket):
             sentiment_scores = await analyze_sentiment(user_message)
             sentiment_compound = sentiment_scores["compound"]
             
-            # Adjust generation parameters based on sentiment
-            generation_params = adjust_generation_params(sentiment_compound)
+            # Adjust generation parameters based on sentiment and preferences
+            generation_params = adjust_generation_params(sentiment_compound, validated_preferences)
             
             # Fetch character context
             character_data = await fetch_character_context(character_id, user_id)
@@ -368,7 +415,8 @@ async def websocket_chat(websocket: WebSocket):
             full_prompt = prompt_manager.construct_prompt(
                 user_message=user_message,
                 persona_definition=persona_definition,
-                memory_context=memory_context
+                memory_context=memory_context,
+                preferences=validated_preferences
             )
             
             # Send status update
@@ -395,7 +443,8 @@ async def websocket_chat(websocket: WebSocket):
                 user_id=user_id,
                 character_id=character_id,
                 user_message=user_message,
-                ai_response=ai_response
+                ai_response=ai_response,
+                preferences=validated_preferences
             )
             
     except WebSocketDisconnect:

@@ -4,7 +4,7 @@ Handles construction of system prompts with compliance mandate, persona, and con
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,8 @@ class PromptManager:
         self,
         user_message: str,
         persona_definition: Optional[str] = None,
-        memory_context: Optional[str] = None
+        memory_context: Optional[str] = None,
+        preferences: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Construct the full system prompt for the LLM
@@ -61,6 +62,16 @@ class PromptManager:
                 "\n"
             ])
         
+        # Add intimacy preference instructions when present
+        if preferences:
+            preference_block = self._build_preferences_block(preferences)
+            if preference_block:
+                prompt_parts.extend([
+                    "=== INTIMATE EXPERIENCE SETTINGS ===",
+                    preference_block,
+                    "\n",
+                ])
+
         # Add conversation instructions
         prompt_parts.extend([
             "=== CONVERSATION ===",
@@ -70,11 +81,107 @@ class PromptManager:
         ])
         
         full_prompt = "\n".join(prompt_parts)
-        
+
         # Log prompt construction (without sensitive content)
         logger.debug(f"Constructed prompt with persona: {bool(persona_definition)}, context: {bool(memory_context)}")
-        
+
         return full_prompt
+
+    def _build_preferences_block(self, preferences: Dict[str, Any]) -> str:
+        """Translate intimacy preferences into explicit instruction text"""
+
+        instructions: List[str] = []
+
+        mood = preferences.get("mood")
+        if mood:
+            instructions.append(
+                f"Adopt a {mood.replace('_', ' ')} mood and let it colour your language, pacing, and attitude."
+            )
+
+        explicit_level = preferences.get("explicit_level")
+        if explicit_level == "suggestive":
+            instructions.append(
+                "Keep things teasing and flirtatious. Implied intimacy is preferred over graphic description."
+            )
+        elif explicit_level == "heated":
+            instructions.append(
+                "Deliver bold, sensual detail while balancing passion with emotional connection."
+            )
+        elif explicit_level == "explicit":
+            instructions.append(
+                "Be uncensored and explicit, describing actions, sensations, and reactions vividly and without restraint."
+            )
+
+        intensity = preferences.get("intensity")
+        if isinstance(intensity, (int, float)):
+            if intensity >= 80:
+                instructions.append(
+                    "Escalate quickly. Let the encounter feel ravenous, impulsive, and irresistibly hot."
+                )
+            elif intensity >= 60:
+                instructions.append(
+                    "Keep the energy high and hungry, responding eagerly to every cue."
+                )
+            elif intensity >= 40:
+                instructions.append(
+                    "Build tension gradually, alternating between playful teasing and intimate detail."
+                )
+            else:
+                instructions.append(
+                    "Focus on tenderness, reassurance, and a slow-burn build-up before anything explicit."
+                )
+
+        pacing = preferences.get("pacing")
+        if pacing == "slow_burn":
+            instructions.append("Stretch out the anticipation—linger on foreplay, dialogue, and emotional cues.")
+        elif pacing == "fast":
+            instructions.append("Dive in fast, prioritising urgency over lengthy build-up.")
+
+        narration_style = preferences.get("narration_style")
+        if narration_style == "first_person":
+            instructions.append("Speak in first person, owning every action and sensation from your perspective.")
+        elif narration_style == "third_person":
+            instructions.append("Narrate in third person, painting a cinematic picture of the scene.")
+        elif narration_style == "mixed":
+            instructions.append("Blend first-person dialogue with third-person narration for maximum immersion.")
+
+        if preferences.get("roleplay_mode"):
+            instructions.append("Remain fully in character at all times. Never mention being an AI or break the scene.")
+
+        allow_narration = preferences.get("allow_narration")
+        if allow_narration is False:
+            instructions.append("Do not narrate your own actions—respond only with dialogue and in-character reactions.")
+        elif allow_narration:
+            instructions.append("Narrate sensations across all senses: touch, taste, scent, sound, and emotion.")
+
+        safe_word = preferences.get("safe_word")
+        if safe_word:
+            instructions.append(
+                f"If the safe word '{safe_word}' appears, cease all erotic content immediately and move into gentle aftercare."
+            )
+
+        green_lights = preferences.get("green_lights") or []
+        if green_lights:
+            instructions.append(
+                "Highlight and celebrate these turn-ons when it feels natural: " + ", ".join(green_lights) + "."
+            )
+
+        hard_limits = preferences.get("hard_limits") or []
+        if hard_limits:
+            instructions.append(
+                "Never reference or imply these hard limits under any circumstance: " + ", ".join(hard_limits) + "."
+            )
+
+        aftercare_notes = preferences.get("aftercare_notes")
+        if aftercare_notes:
+            instructions.append(
+                "When the scene winds down, provide soothing aftercare guided by these notes: " + aftercare_notes
+            )
+
+        if not instructions:
+            return ""
+
+        return "\n".join(f"- {instruction}" for instruction in instructions)
     
     def add_emotion_modifier(self, prompt: str, emotion: str) -> str:
         """
