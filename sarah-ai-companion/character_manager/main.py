@@ -15,13 +15,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
-from .database import get_db, init_db
-from .models import (
+from database import get_db, init_db
+from models import (
     CharacterCreateRequest, CharacterUpdateRequest, CharacterResponse,
     CharacterListResponse, PersonaGenerationRequest, PersonaGenerationResponse
 )
-from .persona_generator import PersonaGenerator
-from .config import settings
+from persona_generator import PersonaGenerator
+from config import settings
 
 # Configure logging
 logging.basicConfig(
