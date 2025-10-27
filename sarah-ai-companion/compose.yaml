@@ -1,0 +1,6 @@
+services:
+  sarahaicompanion:
+    image: sarahaicompanion
+    build:
+      context: .
+      dockerfile: ./Dockerfile

@@ -86,23 +86,37 @@ export function ChatInterface({ character }: ChatInterfaceProps) {
 
     setMessages((prev) => [...prev, userMessage])
 
-    // Send via WebSocket
-    sendMessage({
-      message: content,
-      character_id: character.character_id,
-      user_id: 'user123', // TODO: Get from auth
-    })
+    try {
+      // Send via WebSocket
+      sendMessage({
+        message: content,
+        character_id: character.character_id,
+        user_id: 'user123', // TODO: Get from auth
+      })
 
-    // Update message status
-    setTimeout(() => {
+      // Update message status
+      setTimeout(() => {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === userMessage.id
+              ? { ...msg, metadata: { ...msg.metadata, status: 'sent' } }
+              : msg
+          )
+        )
+      }, 100)
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      toast.error('Failed to send message')
+      
+      // Update message status to error
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === userMessage.id
-            ? { ...msg, metadata: { ...msg.metadata, status: 'sent' } }
+            ? { ...msg, metadata: { ...msg.metadata, status: 'error' } }
             : msg
         )
       )
-    }, 100)
+    }
   }
 
   // Auto-scroll to bottom
