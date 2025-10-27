@@ -18,14 +18,14 @@ import redis.asyncio as redis
 from pymilvus import connections, Collection, utility
 from sentence_transformers import SentenceTransformer
 
-from .database import get_db, init_db
-from .milvus_manager import MilvusManager
-from .models import (
+from database import get_db, init_db
+from milvus_manager import MilvusManager
+from models import (
     MemoryRetrievalRequest, MemoryRetrievalResponse,
     ConversationTurn, KeyFact, FactType
 )
-from .memory_extractor import MemoryExtractor
-from .config import settings
+from memory_extractor import MemoryExtractor
+from config import settings
 
 # Configure logging
 logging.basicConfig(
