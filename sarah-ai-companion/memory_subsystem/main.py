@@ -12,6 +12,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as redis
 from pymilvus import connections, Collection, utility
@@ -248,7 +249,7 @@ async def health_check():
     postgres_healthy = False
     try:
         async with get_db() as db:
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             postgres_healthy = True
     except:
         pass
