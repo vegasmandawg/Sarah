@@ -29,6 +29,31 @@ Build, run, and developer workflows
 - To run a single service locally for quick dev: run `python main.py` inside the service folder after activating a virtualenv and installing `requirements.txt` for that service.
 - Frontend dev: `frontend/package.json` contains npm scripts. Use `npm install` then `npm run dev` inside `frontend` for hot reload.
 
+Practical run/debug notes (merged from service READMEs)
+- Common per-service dev command (run from the service folder):
+  - Install deps: `pip install -r requirements.txt`
+  - Start server: `uvicorn main:app --host 0.0.0.0 --port 8000 --reload` (many services use port 8000 by default)
+- Docker Compose: run just one service for faster iteration:
+  - `docker-compose up persona_engine` or `docker-compose up multimodal_engine`
+  - Start the full stack: `docker-compose up -d`
+- Frontend quick start (from `frontend/`):
+  - `npm install`
+  - `cp .env.local.example .env.local` then edit
+  - `npm run dev` → available at http://localhost:3000
+
+Key env vars and heavy deps to be aware of
+- Datastore (shared): `POSTGRES_HOST/PORT/USER/PASSWORD/DB` — see `character_manager/README.md` and `memory_subsystem/README.md` for names and examples.
+- Milvus: `MILVUS_HOST`, `MILVUS_PORT` (used by `memory_subsystem`). Local quick start: `docker-compose -f milvus-docker-compose.yml up -d` as noted in the memory README.
+- Ollama + model (persona engine): `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`. Dev steps in `persona_engine/README.md` include `ollama serve` and `ollama pull <model>`.
+- FLUX.1 (multimodal): `FLUX_MODEL_PATH`, `DEVICE`, `USE_FP16` and `ELEVENLABS_API_KEY` for TTS. FLUX requires significant VRAM; the multimodal README lists recommended resources.
+- Frontend envs: `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` (see `frontend/README.md`); set these to the API Gateway (http://localhost:8080).
+
+Non-obvious integration points / gotchas
+- WebSockets go through the API Gateway. If chat WS fails, check `api_gateway/nginx.conf` (upgrade headers, timeouts) and `persona_engine` WS settings (`WS_PING_INTERVAL`, `WS_PING_TIMEOUT`).
+- Memory pipeline: `persona_engine` publishes conversation turns to Redis; workers in `memory_subsystem` extract facts and push embeddings to Milvus. Check `memory_subsystem/memory_extractor.py` and `milvus_manager.py` for exact formats.
+- LoRA training: `character_manager` will trigger `multimodal_engine` `/train-lora` when 5+ images are uploaded. See `character_manager/README.md` for the multipart form fields and `multimodal_engine/README.md` for training requirements.
+
+
 Examples and data shapes
 - Character creation API -> frontend expects a character object with fields defined in `character_manager/models.py`. Use this file as canonical shape when adding fields.
 - Memory vectors: `memory_subsystem/models.py` defines stored vector metadata — when adding retrieval filters, keep same keys to avoid index splits.
