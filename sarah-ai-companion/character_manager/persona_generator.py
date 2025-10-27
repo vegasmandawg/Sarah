@@ -6,7 +6,7 @@ import logging
 from typing import List, Optional
 import httpx
 
-from .models import PersonaGenerationRequest, PersonaGenerationResponse
+from models import PersonaGenerationRequest, PersonaGenerationResponse
 
 logger = logging.getLogger(__name__)
 

@@ -16,9 +16,9 @@ import httpx
 import redis.asyncio as redis
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-from .prompt_manager import PromptManager
-from .models import ChatMessage, ChatRequest, SentimentRequest, SentimentResponse
-from .config import settings
+from prompt_manager import PromptManager
+from models import ChatMessage, ChatRequest, SentimentRequest, SentimentResponse
+from config import settings
 
 # Configure logging
 logging.basicConfig(
