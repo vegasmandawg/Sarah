@@ -12,6 +12,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 import httpx
 
 from database import get_db, init_db
@@ -66,9 +67,9 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://frontend:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -117,7 +118,7 @@ async def health_check():
     db_healthy = False
     try:
         async with get_db() as db:
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             db_healthy = True
     except:
         pass

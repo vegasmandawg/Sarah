@@ -13,6 +13,7 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 import redis.asyncio as redis
 from pymilvus import connections, Collection, utility
 from sentence_transformers import SentenceTransformer
@@ -114,9 +115,9 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://frontend:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -124,13 +125,18 @@ app.add_middleware(
 async def conversation_worker():
     """Background worker to process conversation turns from Redis"""
     logger.info("Conversation worker started")
-    
+
     while True:
+        if not redis_client:
+            logger.warning("Redis client unavailable, retrying conversation worker in 5s")
+            await asyncio.sleep(5)
+            continue
+
         try:
             # Subscribe to conversation turns
             pubsub = redis_client.pubsub()
             await pubsub.subscribe("conversation_turns")
-            
+
             async for message in pubsub.listen():
                 if message["type"] == "message":
                     try:
@@ -138,7 +144,7 @@ async def conversation_worker():
                         await process_conversation_turn(data)
                     except Exception as e:
                         logger.error(f"Error processing conversation turn: {e}")
-                        
+
         except Exception as e:
             logger.error(f"Conversation worker error: {e}")
             await asyncio.sleep(5)  # Retry after delay
@@ -248,7 +254,7 @@ async def health_check():
     postgres_healthy = False
     try:
         async with get_db() as db:
-            await db.execute("SELECT 1")
+            await db.execute(text("SELECT 1"))
             postgres_healthy = True
     except:
         pass

@@ -27,6 +27,7 @@ export function useWebSocket({
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>()
   const urlRef = useRef(url)
+  const reconnectAttemptsRef = useRef(0)
 
   // Update url ref when it changes
   useEffect(() => {
@@ -41,6 +42,7 @@ export function useWebSocket({
       ws.onopen = () => {
         console.log('WebSocket connected')
         setIsConnected(true)
+        reconnectAttemptsRef.current = 0
         setReconnectAttempts(0)
         onConnect?.()
       }
@@ -65,10 +67,12 @@ export function useWebSocket({
         onDisconnect?.()
         
         // Attempt to reconnect
-        if (reconnectAttempts < maxReconnectAttempts) {
+        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log(`Reconnecting... (attempt ${reconnectAttempts + 1})`)
-            setReconnectAttempts((prev) => prev + 1)
+            const nextAttempt = reconnectAttemptsRef.current + 1
+            reconnectAttemptsRef.current = nextAttempt
+            setReconnectAttempts(nextAttempt)
+            console.log(`Reconnecting... (attempt ${nextAttempt})`)
             connect()
           }, reconnectInterval)
         }
@@ -78,7 +82,7 @@ export function useWebSocket({
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error)
     }
-  }, [onConnect, onMessage, onDisconnect, onError, reconnectInterval, maxReconnectAttempts, reconnectAttempts])
+  }, [onConnect, onMessage, onDisconnect, onError, reconnectInterval, maxReconnectAttempts])
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
