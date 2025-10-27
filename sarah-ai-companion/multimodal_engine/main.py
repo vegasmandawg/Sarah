@@ -21,14 +21,14 @@ from PIL import Image
 import numpy as np
 from io import BytesIO
 
-from models import (
+from .models import (
     ImageGenerationRequest, ImageGenerationResponse,
     VoiceGenerationRequest, VoiceGenerationResponse,
     LoRATrainingRequest, LoRATrainingResponse
 )
-from flux_manager import FluxManager
-from lora_trainer import LoRATrainer
-from config import settings
+from .flux_manager import FluxManager
+from .lora_trainer import LoRATrainer
+from .config import settings
 
 # Configure logging
 logging.basicConfig(
