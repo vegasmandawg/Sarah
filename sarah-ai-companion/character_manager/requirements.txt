@@ -1,0 +1,33 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-dotenv==1.0.0
+
+# Database
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
+
+# HTTP Client
+httpx==0.25.2
+aiohttp==3.9.1
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# File Handling
+python-multipart==0.0.6
+aiofiles==23.2.1
+
+# JSON Processing
+orjson==3.9.10
+
+# UUID Generation
+uuid==1.30
+
+# Logging
+python-json-logger==2.0.7
+
+# Type Hints
+typing-extensions==4.8.0

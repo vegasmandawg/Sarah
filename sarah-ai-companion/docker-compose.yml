@@ -1,0 +1,216 @@
+version: '3.8'
+
+services:
+  # API Gateway - Nginx reverse proxy
+  api_gateway:
+    build: 
+      context: ./api_gateway
+      dockerfile: Dockerfile
+    container_name: sarah_api_gateway
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:80"
+    volumes:
+      - ./api_gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - persona_engine
+      - multimodal_engine
+      - memory_subsystem
+      - character_manager
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Persona & Conversation Engine
+  persona_engine:
+    build:
+      context: ./persona_engine
+      dockerfile: Dockerfile
+    container_name: sarah_persona_engine
+    env_file:
+      - ./persona_engine/.env
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${PERSONA_ENGINE_PORT:-8001}:8000"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  # Multi-Modal Generation Engine
+  multimodal_engine:
+    build:
+      context: ./multimodal_engine
+      dockerfile: Dockerfile
+    container_name: sarah_multimodal_engine
+    env_file:
+      - ./multimodal_engine/.env
+    volumes:
+      - flux_models:/app/models
+      - lora_models:/app/lora_models
+    ports:
+      - "${MULTIMODAL_ENGINE_PORT:-8002}:8000"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 8G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # Memory & Personalization Subsystem
+  memory_subsystem:
+    build:
+      context: ./memory_subsystem
+      dockerfile: Dockerfile
+    container_name: sarah_memory_subsystem
+    env_file:
+      - ./memory_subsystem/.env
+    depends_on:
+      - postgres
+      - milvus
+    ports:
+      - "${MEMORY_SUBSYSTEM_PORT:-8003}:8000"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Character Customization & Management
+  character_manager:
+    build:
+      context: ./character_manager
+      dockerfile: Dockerfile
+    container_name: sarah_character_manager
+    env_file:
+      - ./character_manager/.env
+    depends_on:
+      - postgres
+      - multimodal_engine
+      - persona_engine
+    ports:
+      - "${CHARACTER_MANAGER_PORT:-8004}:8000"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Frontend - Next.js Application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sarah_frontend
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: sarah_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sarah_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sarah_password}
+      POSTGRES_DB: ${POSTGRES_DB:-sarah_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Milvus Vector Database
+  milvus:
+    image: milvusdb/milvus:v2.3.3
+    container_name: sarah_milvus
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    command: milvus run standalone
+    volumes:
+      - milvus_data:/var/lib/milvus
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+      - "${MILVUS_GRPC_PORT:-19531}:19531"
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Etcd for Milvus
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: sarah_etcd
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    volumes:
+      - etcd_data:/etcd
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls=http://0.0.0.0:2379 --data-dir=/etcd
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # MinIO for Milvus
+  minio:
+    image: minio/minio:latest
+    container_name: sarah_minio
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/minio_data
+    command: minio server /minio_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+  # Redis for message queue
+  redis:
+    image: redis:7-alpine
+    container_name: sarah_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sarah_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  milvus_data:
+  etcd_data:
+  minio_data:
+  ollama_data:
+  flux_models:
+  lora_models:
+  redis_data:
+
+networks:
+  sarah_network:
+    driver: bridge
