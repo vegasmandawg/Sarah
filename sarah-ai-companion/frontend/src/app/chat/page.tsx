@@ -1,16 +1,22 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useCharacterStore } from '@/store/character-store'
 import { ChatInterface } from '@/components/chat/chat-interface'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Settings } from 'lucide-react'
+import { AdvancedChatSettings } from '@/components/chat/advanced-chat-settings'
+import { useChatSettingsStore } from '@/store/chat-settings-store'
+import { toTitleCase } from '@/lib/utils'
 
 export default function ChatPage() {
   const router = useRouter()
   const { selectedCharacter } = useCharacterStore()
   const [showSettings, setShowSettings] = useState(false)
+  const mood = useChatSettingsStore((state) => state.mood)
+  const explicitLevel = useChatSettingsStore((state) => state.explicitLevel)
+  const intensity = useChatSettingsStore((state) => state.intensity)
 
   useEffect(() => {
     if (!selectedCharacter) {
@@ -58,7 +64,7 @@ export default function ChatPage() {
               {selectedCharacter.name}
             </h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              Online and ready to chat
+              Craving a {toTitleCase(mood)} {explicitLevel === 'explicit' ? 'encounter' : 'moment'} at {intensity}% heat
             </p>
           </div>
         </div>
@@ -77,23 +83,7 @@ export default function ChatPage() {
 
             {showSettings && (
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-                  Settings
-                </h3>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="rounded" defaultChecked />
-                    <span>Enable voice responses</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="rounded" defaultChecked />
-                    <span>Show sentiment analysis</span>
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="rounded" />
-                    <span>Auto-generate images</span>
-                  </label>
-                </div>
+                <AdvancedChatSettings />
               </div>
             )}
           </div>

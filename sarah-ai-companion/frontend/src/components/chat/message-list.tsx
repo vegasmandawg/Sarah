@@ -9,6 +9,7 @@ interface MessageListProps {
   isTyping: boolean
   currentResponse: string
   character: Character
+  showSentiment: boolean
 }
 
 export function MessageList({
@@ -16,6 +17,7 @@ export function MessageList({
   isTyping,
   currentResponse,
   character,
+  showSentiment,
 }: MessageListProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
@@ -28,7 +30,12 @@ export function MessageList({
       )}
 
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} character={character} />
+        <MessageBubble
+          key={message.id}
+          message={message}
+          character={character}
+          showSentiment={showSentiment}
+        />
       ))}
 
       {currentResponse && (
@@ -41,6 +48,7 @@ export function MessageList({
           }}
           character={character}
           isStreaming
+          showSentiment={showSentiment}
         />
       )}
 
@@ -64,9 +72,10 @@ interface MessageBubbleProps {
   message: Message
   character: Character
   isStreaming?: boolean
+  showSentiment: boolean
 }
 
-function MessageBubble({ message, character, isStreaming }: MessageBubbleProps) {
+function MessageBubble({ message, character, isStreaming, showSentiment }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
   return (
@@ -86,8 +95,19 @@ function MessageBubble({ message, character, isStreaming }: MessageBubbleProps) 
             : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
         )}
       >
+        {message.metadata?.quickActionLabel && (
+          <div
+            className={cn(
+              'mb-2 text-[10px] font-semibold uppercase tracking-wide',
+              isUser ? 'text-primary-100' : 'text-primary-500'
+            )}
+          >
+            {message.metadata.quickActionLabel}
+          </div>
+        )}
+
         <p className="whitespace-pre-wrap">{message.content}</p>
-        
+
         {!isStreaming && (
           <div
             className={cn(
@@ -96,8 +116,8 @@ function MessageBubble({ message, character, isStreaming }: MessageBubbleProps) 
             )}
           >
             <span>{formatDate(message.timestamp)}</span>
-            
-            {message.metadata?.sentiment && (
+
+            {showSentiment && message.metadata?.sentiment && (
               <span className={cn('flex items-center gap-1', getSentimentColor(message.metadata.sentiment.compound))}>
                 {getSentimentEmoji(message.metadata.sentiment.compound)}
                 <span className="font-medium">
