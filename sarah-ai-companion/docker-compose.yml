@@ -64,7 +64,10 @@ services:
           memory: 16G
         reservations:
           memory: 8G
-    runtime: nvidia
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
 
