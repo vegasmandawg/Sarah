@@ -29,11 +29,26 @@ export function useWebSocket({
   const urlRef = useRef(url)
   const reconnectAttemptsRef = useRef(0)
   const onMessageRef = useRef(onMessage)
+  const onConnectRef = useRef(onConnect)
+  const onDisconnectRef = useRef(onDisconnect)
+  const onErrorRef = useRef(onError)
   const shouldReconnectRef = useRef(true)
 
   useEffect(() => {
     onMessageRef.current = onMessage
   }, [onMessage])
+
+  useEffect(() => {
+    onConnectRef.current = onConnect
+  }, [onConnect])
+
+  useEffect(() => {
+    onDisconnectRef.current = onDisconnect
+  }, [onDisconnect])
+
+  useEffect(() => {
+    onErrorRef.current = onError
+  }, [onError])
 
   // Update url ref when it changes
   useEffect(() => {
@@ -75,7 +90,7 @@ export function useWebSocket({
         setIsConnected(true)
         reconnectAttemptsRef.current = 0
         setReconnectAttempts(0)
-        onConnect?.()
+        onConnectRef.current?.()
       }
 
       ws.onmessage = (event) => {
@@ -89,13 +104,13 @@ export function useWebSocket({
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error)
-        onError?.(error)
+        onErrorRef.current?.(error)
       }
 
       ws.onclose = () => {
         console.log('WebSocket disconnected')
         setIsConnected(false)
-        onDisconnect?.()
+        onDisconnectRef.current?.()
 
         // Attempt to reconnect
         if (
@@ -116,7 +131,7 @@ export function useWebSocket({
     } catch (error) {
       console.error('Failed to create WebSocket connection:', error)
     }
-  }, [onConnect, onDisconnect, onError, reconnectInterval, maxReconnectAttempts])
+  }, [reconnectInterval, maxReconnectAttempts])
 
   const disconnect = useCallback(() => {
     shouldReconnectRef.current = false
