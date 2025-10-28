@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { Character, Message, WebSocketMessage } from '@/types'
 import { MessageList } from './message-list'
@@ -30,6 +30,11 @@ export function ChatInterface({ character }: ChatInterfaceProps) {
   const [isTyping, setIsTyping] = useState(false)
   const [currentResponse, setCurrentResponse] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const currentResponseRef = useRef(currentResponse)
+
+  useEffect(() => {
+    currentResponseRef.current = currentResponse
+  }, [currentResponse])
 
   const preferences = useChatSettingsStore(selectChatPreferences)
   const mood = useChatSettingsStore((state) => state.mood)
@@ -41,6 +46,73 @@ export function ChatInterface({ character }: ChatInterfaceProps) {
   const showSentiment = useChatSettingsStore((state) => state.showSentiment)
   const greenLights = useChatSettingsStore((state) => state.greenLights)
   const hardLimits = useChatSettingsStore((state) => state.hardLimits)
+
+  const handleWebSocketMessage = useCallback(
+    (message: WebSocketMessage) => {
+      switch (message.type) {
+        case 'status':
+          if (message.task === 'processing_message') {
+            setIsTyping(true)
+          } else if (message.task === 'generating_response') {
+            setIsTyping(true)
+            setCurrentResponse('')
+            currentResponseRef.current = ''
+          }
+          break
+
+        case 'message': {
+          const assistantMessage: Message = {
+            id: generateMessageId(),
+            role: 'assistant',
+            content: message.content,
+            timestamp: new Date().toISOString(),
+          }
+          setMessages((prev) => [...prev, assistantMessage])
+          setIsTyping(false)
+          setCurrentResponse('')
+          currentResponseRef.current = ''
+          break
+        }
+
+        case 'token':
+          setIsTyping(false)
+          setCurrentResponse((prev) => {
+            const next = prev + message.content
+            currentResponseRef.current = next
+            return next
+          })
+          break
+
+        case 'complete': {
+          setIsTyping(false)
+          const responseText = currentResponseRef.current
+          if (responseText) {
+            const assistantMessage: Message = {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: responseText,
+              timestamp: new Date().toISOString(),
+              metadata: {
+                sentiment: message.sentiment,
+              },
+            }
+            setMessages((prev) => [...prev, assistantMessage])
+          }
+          setCurrentResponse('')
+          currentResponseRef.current = ''
+          break
+        }
+
+        case 'error':
+          toast.error(message.content || 'An error occurred')
+          setIsTyping(false)
+          setCurrentResponse('')
+          currentResponseRef.current = ''
+          break
+      }
+    },
+    [setIsTyping, setCurrentResponse, setMessages]
+  )
 
   const { sendMessage, isConnected } = useWebSocket({
     url: '/ws/chat',
@@ -54,45 +126,6 @@ export function ChatInterface({ character }: ChatInterfaceProps) {
       toast.error('Disconnected from chat')
     },
   })
-
-  function handleWebSocketMessage(message: WebSocketMessage) {
-    switch (message.type) {
-      case 'status':
-        if (message.task === 'processing_message') {
-          setIsTyping(true)
-        } else if (message.task === 'generating_response') {
-          setCurrentResponse('')
-        }
-        break
-
-      case 'token':
-        setIsTyping(false)
-        setCurrentResponse((prev) => prev + message.content)
-        break
-
-      case 'complete':
-        if (currentResponse) {
-          const assistantMessage: Message = {
-            id: generateMessageId(),
-            role: 'assistant',
-            content: currentResponse,
-            timestamp: new Date().toISOString(),
-            metadata: {
-              sentiment: message.sentiment,
-            },
-          }
-          setMessages((prev) => [...prev, assistantMessage])
-          setCurrentResponse('')
-        }
-        break
-
-      case 'error':
-        toast.error(message.content || 'An error occurred')
-        setIsTyping(false)
-        setCurrentResponse('')
-        break
-    }
-  }
 
   const handleSendMessage = async (
     content: string,
